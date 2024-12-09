@@ -48,9 +48,3 @@ class BorrowRequestCreate(SQLModel):
     end_date: datetime
     status: str = Field(default="PENDING")
 
-class BorrowRequestStatusUpdate(SQLModel):
-     status: str
-
-class TokenRequest(SQLModel):
-    email: str
-    password: str

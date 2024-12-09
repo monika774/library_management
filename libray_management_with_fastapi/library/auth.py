@@ -9,15 +9,12 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30  # 30 minutes
 REFRESH_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7 # 7 days
 ALGORITHM = "HS256"
 secret_key = secrets.token_hex(32)
-# JWT_SECRET_KEY = os.environ['JWT_SECRET_KEY']     # should be kept secret
-# JWT_REFRESH_SECRET_KEY = os.environ['JWT_REFRESH_SECRET_KEY']      # should be kept secret
 print("Your generated secret key is:", secret_key)
 
 password_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 print(password_context)
 
 def get_hashed_password(password: str) -> str:
-    # print(password_context.hash(password))
     return password_context.hash(password)
 
 

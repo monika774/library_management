@@ -35,15 +35,6 @@ async def add_new_user(user: UserCreate):
         session.refresh(new_user)
         return {"msg": f"User created successfully","user_id": new_user.id }
 
-@app.post("/token")  
-async def login_for_access_token(user: UserCreate, db: Session = Depends(get_db)):
-    db_user = db.exec(select(User).where(User.email == user.email)).first()
-    if not db_user or not verify_password(user.password, db_user.password):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    
-    access_token = create_access_token(subject=db_user.email)
-    return {"access_token": access_token, "token_type": "bearer"}
-
 
 @app.post("/bookadd")
 async def add_book(book:BookCreate):
