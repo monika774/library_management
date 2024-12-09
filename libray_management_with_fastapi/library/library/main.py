@@ -3,13 +3,15 @@ from pydantic import BaseModel
 from fastapi import  Path, Query, Body
 from datetime import date
 from models import  User,UserCreate, Book, BookCreate, BorrowRequest, BorrowRequestCreate, BorrowRequestStatusUpdate
-from models import TokenRequest
 from database import engine
 from database import create_db_and_tables, get_db, get_session
 from fastapi import FastAPI, HTTPException
 from sqlmodel import Session, select
 from auth import get_hashed_password, create_refresh_token, verify_password, create_access_token
 from sqlmodel import Session, select
+import csv
+from fastapi.responses import StreamingResponse
+from io import StringIO
 
 app = FastAPI(title="Library Management System")
 
@@ -288,3 +290,36 @@ async def get_personal_borrow_history(user_id: int):
             }
             for borrow_request in borrow_requests
         ]
+
+
+
+@app.get("/borrowrequest_view/download")
+async def get_borrow_request():
+    """API for download list of Borrowrequest """
+    with Session(engine) as session:
+        # get all borrow requests
+        borrow_requests = session.exec(
+            select(BorrowRequest).join(Book).join(User)
+        ).all()
+
+        if not borrow_requests:
+            raise HTTPException(status_code=404, detail="No borrow requests found")
+        output = StringIO()
+        writer = csv.writer(output)
+        # Write field names
+        writer.writerow(["id", "book_id", "user_id", "start_date", "end_date", "status"])
+        for borrow_request in borrow_requests:
+            writer.writerow([
+                borrow_request.id,
+                borrow_request.book.id,
+                borrow_request.user.id,
+                borrow_request.start_date,
+                borrow_request.end_date,
+                borrow_request.status
+            ])
+        output.seek(0)
+        print(output)
+        print(StreamingResponse)
+        return StreamingResponse(output, media_type="text/csv",
+                                headers={"Content-Disposition": "attachment; filename=borrow-request-data.csv"})
+       
