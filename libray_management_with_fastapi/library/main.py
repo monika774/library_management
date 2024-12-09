@@ -1,15 +1,15 @@
 from fastapi import  FastAPI, Depends, HTTPException
-from pydantic import BaseModel
-from fastapi import  Path, Query, Body
 from datetime import date
 from models import  User,UserCreate, Book, BookCreate, BorrowRequest, BorrowRequestCreate, BorrowRequestStatusUpdate
-from models import TokenRequest
 from database import engine
-from database import create_db_and_tables, get_db, get_session
+from database import create_db_and_tables
 from fastapi import FastAPI, HTTPException
 from sqlmodel import Session, select
 from auth import get_hashed_password, create_refresh_token, verify_password, create_access_token
 from sqlmodel import Session, select
+import csv
+from fastapi.responses import StreamingResponse
+from io import StringIO
 
 app = FastAPI(title="Library Management System")
 
@@ -28,12 +28,12 @@ async def add_new_user(user: UserCreate):
         statement = select(User).where(User.email == user.email)
         user_exist = session.exec(statement).first()
         if user_exist:
-            raise HTTPException(status_code=400, detail="User with this email already exists")
+            raise HTTPException(status_code=400, detail="User email already exists")
         new_user = User(email=user.email, password=user.password)
         session.add(new_user)
         session.commit()
         session.refresh(new_user)
-        return {"msg": f"User created successfully","user_id": new_user.id }
+        return {"msg": f"User created profile successfully","user_id": new_user.id }
 
 
 @app.post("/bookadd")
@@ -49,7 +49,7 @@ async def add_book(book:BookCreate):
         session.add(new_book)
         session.commit()
         session.refresh(new_book)  
-        return {"msg": f"Book added successfully: {new_book.book_name}"}
+        return {"msg": f"Book added successfully in the Database: {new_book.book_name}"}
 
 @app.put("/book/{book_id}/")
 async def update_book(book_id: int, book_update: Book):
@@ -66,7 +66,7 @@ async def update_book(book_id: int, book_update: Book):
         session.add(book) # save book
         session.commit()
         session.refresh(book)
-        return {"msg": "Book updated successfully", "book": book}
+        return {"msg": "Book updated successfully in the Database", "book": book}
     
 @app.delete("/book/{book_id}/")
 async def delete_book(book_id: int):
@@ -78,7 +78,7 @@ async def delete_book(book_id: int):
             raise HTTPException(status_code=404, detail="Book not found")
         session.delete(book)
         session.commit()
-        return {"msg": f"Book with ID {book_id} has been deleted successfully"}
+        return {"msg": f"Book with ID {book_id} has been deleted successfully from the Databse."}
     
     
 @app.post("/create-borrow-request")
@@ -106,7 +106,7 @@ async def create_borrow_request(borrow_request: BorrowRequestCreate):
             )
         ).first()
         if request_duration:
-            raise HTTPException(status_code=400, detail="Book is already borrowed during the requested period")
+            raise HTTPException(status_code=400, detail="Book is already borrowed during this requested period")
         new_borrow_request = BorrowRequest(
             user_id=user_id,  
             book_id=borrow_request.book_id,
@@ -122,7 +122,7 @@ async def create_borrow_request(borrow_request: BorrowRequestCreate):
             session.rollback()
             raise HTTPException(status_code=500, detail="Error creating borrow request: " + str(e))
         return {
-            "msg": "Borrow request created successfully",
+            "msg": "Borrow request created successfully for the book.",
             "borrow_request": {
                 "id": new_borrow_request.id,
                 "book_id": new_borrow_request.book_id,
@@ -255,7 +255,7 @@ async def borrow_book(borrow_request: BorrowRequestCreate):
         session.commit()
         session.refresh(new_borrow_request)  
         return {
-            "msg": "Borrow request submitted successfully",
+            "msg": "Borrow request submitted successfully for the book with specific duration.",
             "borrow_request": {
                 "id": new_borrow_request.id,
                 "book_id": new_borrow_request.book_id,
@@ -288,3 +288,36 @@ async def get_personal_borrow_history(user_id: int):
             }
             for borrow_request in borrow_requests
         ]
+
+
+
+@app.get("/borrowrequest_view/download")
+async def get_borrow_request():
+    """API for download list of Borrowrequest """
+    with Session(engine) as session:
+        # get all borrow requests
+        borrow_requests = session.exec(
+            select(BorrowRequest).join(Book).join(User)
+        ).all()
+
+        if not borrow_requests:
+            raise HTTPException(status_code=404, detail="No borrow requests found")
+        output = StringIO()
+        writer = csv.writer(output)
+        # Write field names
+        writer.writerow(["id", "book_id", "user_id", "start_date", "end_date", "status"])
+        for borrow_request in borrow_requests:
+            writer.writerow([
+                borrow_request.id,
+                borrow_request.book.id,
+                borrow_request.user.id,
+                borrow_request.start_date,
+                borrow_request.end_date,
+                borrow_request.status
+            ])
+        output.seek(0)
+        # print(output)
+        # print(StreamingResponse)
+        return StreamingResponse(output, media_type="text/csv",
+                                headers={"Content-Disposition": "attachment; filename=borrow-request-data.csv"})
+       

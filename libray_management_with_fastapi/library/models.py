@@ -1,13 +1,14 @@
 from sqlmodel import SQLModel, Field, Relationship
 from typing import Optional, List
 from datetime import datetime
+# from pydantic import SQLModel
 
 class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     email: str = Field(unique=True, index=True)
     password: str
     is_admin: bool = Field(default=False)
-    # Relationships
+
     borrow_requests: List["BorrowRequest"] = Relationship(back_populates="user")
 
 class Book(SQLModel, table=True):
@@ -16,7 +17,7 @@ class Book(SQLModel, table=True):
     author_name: str
     publish_date: datetime
     total_copies: int
-    # Relationships
+
     borrow_requests: List["BorrowRequest"] = Relationship(back_populates="book")
 
 class BorrowRequest(SQLModel, table=True):
@@ -26,8 +27,8 @@ class BorrowRequest(SQLModel, table=True):
     start_date: datetime
     end_date: datetime
     # is_admin: bool = Field(default=True)
-    status: str = Field(default="PENDING")  # PENDING, APPROVED, DENIED, RETURNED
-    # Relationships
+    status: str = Field(default="PENDING")  
+    
     user: User = Relationship(back_populates="borrow_requests")
     book: Book = Relationship(back_populates="borrow_requests")
 
@@ -48,3 +49,5 @@ class BorrowRequestCreate(SQLModel):
     end_date: datetime
     status: str = Field(default="PENDING")
 
+class BorrowRequestStatusUpdate(SQLModel):
+    status : str
